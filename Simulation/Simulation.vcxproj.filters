@@ -24,9 +24,6 @@
     <ClInclude Include="stdafx.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="targetver.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="Resource.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -54,13 +51,19 @@
     <ClInclude Include="singleton.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="anchor_layout.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
     <ClInclude Include="button.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="label.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="anchor_layout.h">
+    <ClInclude Include="ConfigBlock.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -92,13 +95,16 @@
     <ClCompile Include="gui_resources.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="anchor_layout.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
     <ClCompile Include="button.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="label.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="anchor_layout.cpp">
+    <ClCompile Include="ConfigBlock.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
@@ -126,6 +132,9 @@
       <Filter>资源文件</Filter>
     </Image>
     <Image Include="res\close.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\icon1.ico">
       <Filter>资源文件</Filter>
     </Image>
   </ItemGroup>

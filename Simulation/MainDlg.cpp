@@ -13,7 +13,9 @@
 #define new DEBUG_NEW
 #endif
 
-#define STATUS_DEVICE_STATE 1
+// 状态栏编号
+#define STATUSBAR_CONNECT_STATE		1
+#define STATUSBAR_DEVICE_STATE		2
 
 // CSimulationDlg 对话框
 
@@ -28,7 +30,7 @@ MainDlg::MainDlg(CWnd* pParent /*=NULL*/)
 void MainDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
-	DDX_Control(pDX, IDC_CHECK_DEVICE_STATE, m_deviceStateChkBtn);
+	DDX_Control(pDX, IDC_CHECK_CONNECT_STATE, m_connectStateChkBtn);
 }
 
 BEGIN_MESSAGE_MAP(MainDlg, CDialog)
@@ -36,11 +38,11 @@ BEGIN_MESSAGE_MAP(MainDlg, CDialog)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_WM_SIZE()
-	//ON_WM_ERASEBKGND()
+	//ON_WM_ERASEBKGND() // 屏蔽 擦去背景的消息函数
 	ON_WM_DESTROY()
 	ON_WM_CLOSE()
-	ON_MESSAGE(WM_STATE_DEVICE_CHANGED, &MainDlg::OnDeviceStateChanged)
-	ON_BN_CLICKED(IDC_CHECK_DEVICE_STATE, &MainDlg::OnBnClickedCheckDeviceState)
+	ON_MESSAGE(WM_STATE_CONNECT_CHANGED, &MainDlg::OnConnectStateChanged)
+	ON_BN_CLICKED(IDC_CHECK_CONNECT_STATE, &MainDlg::OnBnClickedCheckConnectState)
 END_MESSAGE_MAP()
 
 
@@ -61,17 +63,19 @@ BOOL MainDlg::OnInitDialog()
 	m_statusBar.Create(this, IDC_PLACE_STATUS);
 	CString str;
 	str.LoadStringW(IDS_DEVICE_CLOSED);//初始状态显示关闭
-	m_statusBar.AddPanel(STATUS_DEVICE_STATE, str, IDB_RED_CIRCLE, StatusBar::PANEL_ALIGN_LEFT);
+	m_statusBar.AddPanel(STATUSBAR_CONNECT_STATE, str, IDB_RED_CIRCLE, StatusBar::PANEL_ALIGN_RIGHT);
+	m_statusBar.AddPanel(STATUSBAR_DEVICE_STATE, L"", NULL, StatusBar::PANEL_ALIGN_LEFT);
 
 	// 点钞机状态按钮
-	m_deviceStateChkBtn.SetCheck(0);
-	m_deviceStateChkBtn.SetWindowText(_T("启动点钞机"));
+	m_connectStateChkBtn.SetCheck(0);
+	m_connectStateChkBtn.SetWindowText(_T("启动点钞机"));
 	
-
+	// 布局
 	m_layout.Init(m_hWnd);
-	m_layout.AddDlgItem(IDC_CHECK_DEVICE_STATE, AnchorLayout::TOP_LEFT, AnchorLayout::TOP_LEFT);
+	m_layout.AddDlgItem(IDC_CHECK_CONNECT_STATE, AnchorLayout::TOP_LEFT, AnchorLayout::TOP_LEFT);
 	m_layout.AddAnchor(m_statusBar.m_hWnd, AnchorLayout::BOTTOM_LEFT, AnchorLayout::BOTTOM_RIGHT);
 
+	// 显示
 	ShowWindow(SW_SHOW);
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
@@ -118,55 +122,55 @@ HCURSOR MainDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
-LRESULT MainDlg::OnDeviceStateChanged(WPARAM wParam, LPARAM lParam)
+LRESULT MainDlg::OnConnectStateChanged(WPARAM wParam, LPARAM lParam)
 {
-	DeviceProxy::ConnectState state = DeviceProxy::GetInstance()->GetDeviceState();
-	if (state == DeviceProxy::STATE_DEVICE_CLOSED)
+	ConnectState state = DeviceProxy::GetInstance()->GetDeviceState();
+	if (state == STATE_DEVICE_CLOSED)
 	{
 		// 按钮状态
-		m_deviceStateChkBtn.SetCheck(0);
-		m_deviceStateChkBtn.SetWindowText(_T("启动验钞机"));
+		m_connectStateChkBtn.SetCheck(0);
+		m_connectStateChkBtn.SetWindowText(_T("启动验钞机"));
 
 		// 状态栏提示
 		CString str;
 		str.LoadStringW(IDS_DEVICE_CLOSED);
-		m_statusBar.SetPanel(1, str, IDB_RED_CIRCLE);
+		m_statusBar.SetPanel(STATUSBAR_CONNECT_STATE, str, IDB_RED_CIRCLE);
 	}
-	else if (state == DeviceProxy::STATE_DEVICE_UNCONNECTED)
+	else if (state == STATE_DEVICE_UNCONNECTED)
 	{
-		DeviceProxy::GetInstance()->Close();
+		DeviceProxy::GetInstance()->Stop();
 	}
-	else if (state == DeviceProxy::STATE_DEVICE_CONNECTED)
+	else if (state == STATE_DEVICE_CONNECTED)
 	{
 		// 状态栏提示
 		CString str;
 		str.LoadStringW(IDS_DEVICE_CONNECTED);
-		m_statusBar.SetPanel(1, str, IDB_GREEN_CIRCLE);
+		m_statusBar.SetPanel(STATUSBAR_CONNECT_STATE, str, IDB_GREEN_CIRCLE);
 	}
-	else if (state == DeviceProxy::STATE_DEVICE_LISTENING)
+	else if (state == STATE_DEVICE_LISTENING)
 	{
 		// 状态栏提示
 		CString str;
 		str.LoadStringW(IDS_DEVICE_LISTENING);
-		m_statusBar.SetPanel(1, str, IDB_GREEN_CIRCLE);
+		m_statusBar.SetPanel(STATUSBAR_CONNECT_STATE, str, IDB_GREEN_CIRCLE);
 	}
 	return TRUE;
 }
 
 
-void MainDlg::OnBnClickedCheckDeviceState()
+void MainDlg::OnBnClickedCheckConnectState()
 {
 	// TODO:  在此添加控件通知处理程序代码
 	UpdateData(TRUE);
-	if (!m_deviceStateChkBtn.GetCheck())
+	if (!m_connectStateChkBtn.GetCheck())
 	{
-		m_deviceStateChkBtn.SetWindowText(_T("启动验钞机"));
-		DeviceProxy::GetInstance()->Close();
+		m_connectStateChkBtn.SetWindowText(_T("启动验钞机"));
+		DeviceProxy::GetInstance()->Stop();
 	}
-	else if (m_deviceStateChkBtn.GetCheck())
+	else if (m_connectStateChkBtn.GetCheck())
 	{
-		m_deviceStateChkBtn.SetWindowText(_T("关闭验钞机"));
-		DeviceProxy::GetInstance()->TryConnect();
+		m_connectStateChkBtn.SetWindowText(_T("关闭验钞机"));
+		DeviceProxy::GetInstance()->Start();
 	}
 	UpdateData(FALSE);
 }
@@ -188,5 +192,5 @@ BOOL MainDlg::OnEraseBkgnd(CDC* pDC)
 void MainDlg::OnDestroy()
 {
 	CDialog::OnDestroy();
-	DeviceProxy::GetInstance()->Close();
+	DeviceProxy::GetInstance()->Stop();
 }

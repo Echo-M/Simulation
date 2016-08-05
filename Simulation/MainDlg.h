@@ -5,8 +5,6 @@
 #pragma once
 #include "afxwin.h"
 #include "status_bar.h"
-#include "button.h"
-#include "label.h"
 #include "anchor_layout.h"
 
 // CSimulationDlg 对话框
@@ -27,19 +25,19 @@ protected:
 	HICON			m_hIcon;
 	AnchorLayout	m_layout;
 	StatusBar		m_statusBar;
-	Button			m_deviceStateChkBtn;
+	CButton			m_connectStateChkBtn;
 
-	// 生成的消息映射函数
 	virtual BOOL OnInitDialog();
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg BOOL OnEraseBkgnd(CDC* pDC);
 	afx_msg void OnDestroy();
-	afx_msg void OnBnClickedCheckDeviceState();
+
+	afx_msg void OnBnClickedCheckConnectState();
+
 	// 添加的消息映射函数
-	afx_msg LRESULT OnDeviceStateChanged(WPARAM wParam,LPARAM lParam);
+	afx_msg LRESULT OnConnectStateChanged(WPARAM wParam, LPARAM lParam);
 	
 	DECLARE_MESSAGE_MAP()
-	
 };

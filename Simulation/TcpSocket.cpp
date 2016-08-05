@@ -237,8 +237,8 @@ bool TcpSocket::ListenClosed()
 	int ret = select(m_socket + 1, &set, NULL, NULL, &tm);
 	if (ret == 1)
 	{
-		char* buf=new char[1000];
-		if (Receive(buf, 1000) <= 0 /*&& WSAGetLastError() == EINTR*/)
+		char* buf=new char[20];
+		if (Receive(buf, 20) <= 0 /*&& WSAGetLastError() == EINTR*/)
 		{
 			SetLastError(WSAGetLastError());
 			delete buf;
