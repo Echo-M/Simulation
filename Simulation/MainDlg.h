@@ -26,6 +26,7 @@ protected:
 	AnchorLayout	m_layout;
 	StatusBar		m_statusBar;
 	CButton			m_connectStateChkBtn;
+	CEdit			m_tipsEdit;
 
 	virtual BOOL OnInitDialog();
 	afx_msg void OnPaint();
@@ -38,6 +39,9 @@ protected:
 
 	// 添加的消息映射函数
 	afx_msg LRESULT OnConnectStateChanged(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnReceivedCommandUpgrade(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnReceivedCommand(WPARAM wParam, LPARAM lParam);
 	
 	DECLARE_MESSAGE_MAP()
+	
 };

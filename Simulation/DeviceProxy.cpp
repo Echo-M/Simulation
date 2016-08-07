@@ -2,40 +2,6 @@
 #include "DeviceProxy.h"
 #include "ConfigBlock.h"
 
-// 指令ID USHORT
-//#define RESULT_GET_SN						0x0001
-#define RESULT_GET_DEVICE_INFO				0x0002
-#define RESULT_UPDATE_DEBUG_STATE			0x0003
-//#define RESULT_GET_IR_PARAMETERS			0x0003
-#define RESULT_UPGRADE						0x0004
-#define RESULT_UPGRADE_DATA					0x0005
-#define RESULT_RESTART						0x0006
-#define RESULT_ECHO							0x8181
-#define RESULT_GET_IR_VALUES				0x0007
-#define RESULT_SET_IR_PARAMETERS			0x0008
-#define RESULT_UPDATE_IR_PARAMETERS			0x0009
-#define RESULT_START_MASTER_SIGNAL_DETECT	0x0006
-#define RESULT_GET_CIS_PARAMETER			0x0009
-#define RESULT_TAKE_CIS_IMAGE				0x000a
-#define RESULT_SET_CIS_PARAMETER			0x000b
-#define RESULT_UPDATE_CIS_PARAMETER			0x000c
-#define RESULT_GET_CIS_CORRECTION_TABLE		0x000d
-#define RESULT_UPDATE_CIS_CORRECTION_TABLE	0x000e
-#define RESULT_GET_MAC						0x0011
-#define RESULT_GET_STUDY_COMPLETED_STATE	0x0012
-//#define RESULT_START_OVI_STUDY             0x0013
-#define RESULT_SET_AGING_TIME				0x0013
-#define RESULT_START_TAPE_STUDY				0x0014
-#define RESULT_START_MOTOR					0x0015
-#define RESULT_START_RUN_CASH_DETECT		0x8004
-#define RESULT_START_SIGNAL_COLLECT			0x0016
-#define RESULT_DISABLE_DEBUG				0x0017
-#define RESULT_SET_TIME						0x0018
-#define RESULT_GET_TIME						0x0019
-#define RESULT_LIGHT_CIS					0x0020
-#define RESULT_SET_SN						0x0021
-#define RESULT_TAPE_LEARNING				0x0022
-
 // ReceiveResult
 ReceiveResult::ReceiveResult()
 : m_dataLength(0)
@@ -129,6 +95,7 @@ DeviceProxy::DeviceProxy()
 
 DeviceProxy::~DeviceProxy()
 {
+	Stop();
 }
 
 bool DeviceProxy::Process()
@@ -137,7 +104,10 @@ bool DeviceProxy::Process()
 	if (m_connectState != STATE_DEVICE_CLOSED)
 		return false;
 
-	if (!m_connect.Listen(_T("192.168.8.131"), 1234))
+	int port = ConfigBlock::GetInstance()->GetIntParameter(L"DeviceAddress", L"port", 0);
+	CString ip = ConfigBlock::GetInstance()->GetStringParameter(L"DeviceAddress", L"ip", L"");
+	//if (!m_connect.Listen(L"192.168.8.131", 1234))
+	if (!m_connect.Listen((LPCTSTR)ip, port))
 		return false;
 								
 	m_connectState = STATE_DEVICE_LISTENING;
@@ -235,6 +205,7 @@ bool DeviceProxy::SendResponse(ReceiveResult* result)
 
 bool DeviceProxy::SendResponse(unsigned short id, unsigned long cnt, const void* recvData, int recvDataLength)
 {
+	m_curCommand.id = id;
 	switch(id)
 	{
 	case RESULT_GET_DEVICE_INFO:
@@ -245,8 +216,22 @@ bool DeviceProxy::SendResponse(unsigned short id, unsigned long cnt, const void*
 		break;
 	case RESULT_SET_TIME:
 		return SendSetTime(cnt, recvData, recvDataLength);
+		break;
 	case RESULT_ECHO:
 		return SendEcho(cnt, recvData, recvDataLength);
+		break;
+	case RESULT_UPGRADE:
+		return SendUpgrade(cnt, recvData, recvDataLength);
+		break;
+	case RESULT_UPGRADE_DATA:
+		return SendUpgradeData(cnt, recvData, recvDataLength);
+		break;
+	case RESULT_UPDATE_DEBUG_STATE:
+		return SendUpgradeDebugState(cnt, recvData, recvDataLength);
+		break;
+	case RESULT_RESTART:
+		return SendRestart(cnt, recvData, recvDataLength);
+		break;
 	default:
 		return false;
 		break;
@@ -274,17 +259,18 @@ bool DeviceProxy::SendResponse(unsigned long cnt, unsigned short status, const v
 			return false;
 	}
 
+	m_curCommand.status = status;
+	PostMessage(AfxGetApp()->GetMainWnd()->GetSafeHwnd(), WM_RECEIVED_COMMAND, 0, 1);
+
 	return true;
 }
 
 bool DeviceProxy::SendDeviceInfo(unsigned long cnt, const void* recvData, int recvDataLength)
 {
-	unsigned short status = 1; // 失败
+	unsigned short status = 0; // 默认成功
 
-	if (recvDataLength == 0)
-		status = 0;
-	else
-		status = 1;
+	if (recvDataLength != 0)
+		return SendResponse(cnt, 1, NULL, 0);
 
 	DeviceInfo deviceInfo;
 	ConfigBlock *config = ConfigBlock::GetInstance();
@@ -333,12 +319,10 @@ bool DeviceProxy::SendDeviceInfo(unsigned long cnt, const void* recvData, int re
 
 bool DeviceProxy::SendCISCorrectionTable(unsigned long cnt, const void* recvData, int recvDataLength)
 {
-	unsigned short status = 1; // 失败
+	unsigned short status = 0; // 默认成功
 
-	if (recvDataLength == 0)
-		status = 0;
-	else
-		status = 1;
+	if (recvDataLength != 0)
+		return SendResponse(cnt, 1, NULL, 0);
 
 	CISCorrectionTable table;
 	for (int i = 0; i < CIS_COUNT; i++)
@@ -360,37 +344,125 @@ bool DeviceProxy::SendCISCorrectionTable(unsigned long cnt, const void* recvData
 
 bool DeviceProxy::SendSetTime(unsigned long cnt, const void* recvData, int recvDataLength)
 {
+	unsigned short status = 0; // 默认成功
+
+	if (recvDataLength != 14)
+		return SendResponse(cnt, 1, NULL, 0);
+
+	//保存接收到的时间
+	/*
 	#pragma pack(push)
 	#pragma pack(1)
 	// 时间参数
 	struct Time
 	{
-		unsigned short year;
-		unsigned short month;
-		unsigned short day;
-		unsigned short hour;
-		unsigned short minute;
-		unsigned short second;
-		unsigned short millisecond;
+	unsigned short year;
+	unsigned short month;
+	unsigned short day;
+	unsigned short hour;
+	unsigned short minute;
+	unsigned short second;
+	unsigned short millisecond;
 	};
 	#pragma pack(pop)
-
-	unsigned short status = 1; // 失败
-
-	if (recvDataLength == 14)
-	{
-		status = 0;
-		Time t;
-		memcpy(&t, recvData, recvDataLength);
-	}
-	else
-		status = 1;
+	Time t;
+	memcpy(&t, recvData, recvDataLength);
+	*/
 
 	return SendResponse(cnt, status, NULL, 0);
 }
 
 bool DeviceProxy::SendEcho(unsigned long cnt, const void* recvData, int recvDataLength)
 {
-	unsigned short status = 0; // 成功
-	return SendResponse(cnt, status, recvData, recvDataLength);
+	return SendResponse(cnt, 0, recvData, recvDataLength);
+}
+
+bool DeviceProxy::SendUpgrade(unsigned long cnt, const void* recvData, int recvDataLength)
+{
+	SendMessage(AfxGetApp()->GetMainWnd()->GetSafeHwnd(), WM_RECEIVED_COMMAND_UPGRADE, 0, 1);
+
+	unsigned short status = ConfigBlock::GetInstance()->GetIntParameter(L"UpgradePara", L"flag", 0);
+	if (status == 1)
+		return SendResponse(cnt, status, NULL, 0);
+
+	if (recvDataLength != 16)//11字节固件版本(字符串) + 1字节0补充 + 4字节固件包长度（unsigned long长整形）
+		return SendResponse(cnt, 1, NULL, 0);;
+
+	unsigned char* buf = new unsigned char[16];
+	memcpy(buf, recvData, 16);
+	// 保存固件包长度
+	unsigned long length = buf[15] << 24 | buf[14] << 16 | buf[13] << 8 | buf[12] << 0;
+	ConfigBlock::GetInstance()->SetIntParameter(L"UpgradePara", L"length", length);
+	// 将版本号保存至配置文件
+	CString version(buf);
+	ConfigBlock::GetInstance()->SetStringParameter(L"DeviceInfo", L"firmwareVersion", version);
+	delete buf;
+
+	// 发送每次需要上传的包的大小
+	unsigned long recvLength = ConfigBlock::GetInstance()->GetIntParameter(L"UpgradePara", L"recvLength", 10000);
+	return SendResponse(cnt, status, &recvLength, 4);
+}
+
+bool DeviceProxy::SendUpgradeData(unsigned long cnt, const void* recvData, int recvDataLength)
+{
+	unsigned short status = ConfigBlock::GetInstance()->GetIntParameter(L"UpgradePara", L"flag", 1);
+	if (status == 1)
+		return SendResponse(cnt, status, NULL, 0);
+
+	unsigned long recvLength = ConfigBlock::GetInstance()->GetIntParameter(L"UpgradePara", L"recvLength", 0);
+	if (recvDataLength > recvLength)
+		return SendResponse(cnt, 1, NULL, 0);
+
+	//保存文件
+	if (1 == ConfigBlock::GetInstance()->GetIntParameter(L"UpgradePara", L"saveFile", 0))
+	{
+		CString savePath = ConfigBlock::GetInstance()->GetStringParameter(L"UpgradePara", L"savePath", L"");
+		savePath += "firmware";
+		savePath += ConfigBlock::GetInstance()->GetStringParameter(L"DeviceInfo", L"firmwareVersion", L"");
+		savePath += ".dat";
+		CFile file(savePath, CFile::modeCreate | CFile::typeBinary | CFile::modeWrite | CFile::modeNoTruncate);
+		file.SeekToEnd();
+		file.Write(recvData, recvDataLength);
+	}
+
+	return SendResponse(cnt, status, NULL, 0);
+}
+
+bool DeviceProxy::SendUpgradeDebugState(unsigned long cnt, const void* recvData, int recvDataLength)
+{
+	unsigned short status = 0;// 默认成功
+
+	if (recvDataLength != 64)
+		return SendResponse(cnt, 1, NULL, 0);
+	
+	//保存文件
+	if (1 == ConfigBlock::GetInstance()->GetIntParameter(L"DebugState", L"saveFile", 0))
+	{
+		CString savePath = ConfigBlock::GetInstance()->GetStringParameter(L"DebugState", L"savePath", L"");
+		savePath += "debugState";
+		SYSTEMTIME st;
+		GetLocalTime(&st);
+		char time[20];
+		sprintf_s(time, sizeof(st), "%4d%2d%2d%2d%2d%2d", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
+		for (int i = 0; time[i]; ++i)
+		{
+			if (time[i] == ' ') time[i] = '0';
+		}
+		savePath += time;
+		savePath += ".dat";
+		CFile file(savePath, CFile::modeCreate | CFile::typeBinary | CFile::modeWrite);
+		file.Write(recvData, recvDataLength);
+	}
+	
+	return SendResponse(cnt, status, NULL, 0);
+}
+
+bool DeviceProxy::SendRestart(unsigned long cnt, const void* recvData, int recvDataLength)
+{
+	unsigned short status = 0;// 默认成功
+
+	if (recvDataLength != 0)
+		return SendResponse(cnt, 1, NULL, 0);
+
+	return SendResponse(cnt, status, NULL, 0);
 }

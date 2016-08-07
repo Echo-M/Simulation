@@ -8,6 +8,7 @@
 #include "afxdialogex.h"
 #include "DeviceProxy.h"
 #include "gui_resources.h"
+#include "ConfigBlock.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -15,7 +16,7 @@
 
 // 状态栏编号
 #define STATUSBAR_CONNECT_STATE		1
-#define STATUSBAR_DEVICE_STATE		2
+#define STATUSBAR_DEVICE_INFO		2
 
 // CSimulationDlg 对话框
 
@@ -31,6 +32,7 @@ void MainDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
 	DDX_Control(pDX, IDC_CHECK_CONNECT_STATE, m_connectStateChkBtn);
+	DDX_Control(pDX, IDC_EDIT_TIPS, m_tipsEdit);
 }
 
 BEGIN_MESSAGE_MAP(MainDlg, CDialog)
@@ -42,6 +44,8 @@ BEGIN_MESSAGE_MAP(MainDlg, CDialog)
 	ON_WM_DESTROY()
 	ON_WM_CLOSE()
 	ON_MESSAGE(WM_STATE_CONNECT_CHANGED, &MainDlg::OnConnectStateChanged)
+	ON_MESSAGE(WM_RECEIVED_COMMAND_UPGRADE, &MainDlg::OnReceivedCommandUpgrade)
+	ON_MESSAGE(WM_RECEIVED_COMMAND,&MainDlg::OnReceivedCommand)
 	ON_BN_CLICKED(IDC_CHECK_CONNECT_STATE, &MainDlg::OnBnClickedCheckConnectState)
 END_MESSAGE_MAP()
 
@@ -64,7 +68,9 @@ BOOL MainDlg::OnInitDialog()
 	CString str;
 	str.LoadStringW(IDS_DEVICE_CLOSED);//初始状态显示关闭
 	m_statusBar.AddPanel(STATUSBAR_CONNECT_STATE, str, IDB_RED_CIRCLE, StatusBar::PANEL_ALIGN_RIGHT);
-	m_statusBar.AddPanel(STATUSBAR_DEVICE_STATE, L"", NULL, StatusBar::PANEL_ALIGN_LEFT);
+	str = "版本: ";
+	str += ConfigBlock::GetInstance()->GetStringParameter(L"DeviceInfo", L"firmwareVersion", L"");
+	m_statusBar.AddPanel(STATUSBAR_DEVICE_INFO, str, NULL, StatusBar::PANEL_ALIGN_RIGHT);
 
 	// 点钞机状态按钮
 	m_connectStateChkBtn.SetCheck(0);
@@ -74,6 +80,7 @@ BOOL MainDlg::OnInitDialog()
 	m_layout.Init(m_hWnd);
 	m_layout.AddDlgItem(IDC_CHECK_CONNECT_STATE, AnchorLayout::TOP_LEFT, AnchorLayout::TOP_LEFT);
 	m_layout.AddAnchor(m_statusBar.m_hWnd, AnchorLayout::BOTTOM_LEFT, AnchorLayout::BOTTOM_RIGHT);
+	m_layout.AddDlgItem(IDC_EDIT_TIPS, AnchorLayout::BOTTOM_LEFT, AnchorLayout::BOTTOM_RIGHT);
 
 	// 显示
 	ShowWindow(SW_SHOW);
@@ -124,7 +131,7 @@ HCURSOR MainDlg::OnQueryDragIcon()
 
 LRESULT MainDlg::OnConnectStateChanged(WPARAM wParam, LPARAM lParam)
 {
-	ConnectState state = DeviceProxy::GetInstance()->GetDeviceState();
+	ConnectState state = DeviceProxy::GetInstance()->GetConnectState();
 	if (state == STATE_DEVICE_CLOSED)
 	{
 		// 按钮状态
@@ -157,6 +164,77 @@ LRESULT MainDlg::OnConnectStateChanged(WPARAM wParam, LPARAM lParam)
 	return TRUE;
 }
 
+LRESULT MainDlg::OnReceivedCommandUpgrade(WPARAM wParam, LPARAM lParam)
+{
+	if (MessageBox(L"您确定要进行升级吗？", L"点钞机升级配置", MB_YESNO | MB_ICONQUESTION) == IDYES)
+	{
+		ConfigBlock::GetInstance()->SetIntParameter(L"UpgradePara", L"flag", 0);
+	}
+	else
+	{
+		ConfigBlock::GetInstance()->SetIntParameter(L"UpgradePara", L"flag", 1);
+	}
+	CString str = L"版本: ";
+	str += ConfigBlock::GetInstance()->GetStringParameter(L"DeviceInfo", L"firmwareVersion", L"");
+	m_statusBar.SetPanel(STATUSBAR_DEVICE_INFO, str, NULL);
+	return true;
+}
+
+LRESULT MainDlg::OnReceivedCommand(WPARAM wParam, LPARAM lParam)
+{
+	DeviceProxy::CurCommand curCommand = DeviceProxy::GetInstance()->GetCurCommand();
+	CString str;
+	if (curCommand.status == 0)
+		str = "成功: ";
+	else
+		str = "失败: ";
+	int index = m_tipsEdit.GetWindowTextLength();
+	m_tipsEdit.SetSel(index, index, TRUE);
+	switch (curCommand.id)
+	{
+	case RESULT_GET_DEVICE_INFO:
+		str += "发送设备信息\n";
+		m_tipsEdit.ReplaceSel(str);
+		break;
+	case RESULT_GET_CIS_CORRECTION_TABLE:
+		str += "发送CIS图像校准表\n";
+		m_tipsEdit.ReplaceSel(str);
+		break;
+	case RESULT_SET_TIME:
+		str += "设置本地时间\n";
+		m_tipsEdit.ReplaceSel(str);
+		break;
+	case RESULT_ECHO:
+		/*str = "";
+		m_tipsEdit.ReplaceSel(str);*/
+		break;
+	case RESULT_UPGRADE:
+		str += "正在升级。。。\n";
+		m_tipsEdit.ReplaceSel(str);
+		break;
+	case RESULT_UPGRADE_DATA:
+		/*str += "接收升级数据包。。。\n";
+		m_tipsEdit.ReplaceSel(str);*/
+		break;
+	case RESULT_UPDATE_DEBUG_STATE:
+		str += "正在更新调试状态\n";
+		m_tipsEdit.ReplaceSel(str);
+		break;
+	case RESULT_RESTART:
+		str += "设备重启\n";
+		m_tipsEdit.ReplaceSel(str);
+		DeviceProxy::GetInstance()->Stop();
+		DeviceProxy::GetInstance()->Start();
+		break;
+	default:
+		return false;
+		break;
+	}
+	
+	m_tipsEdit.LineScroll(m_tipsEdit.GetLineCount());
+	return true;
+
+}
 
 void MainDlg::OnBnClickedCheckConnectState()
 {

@@ -12,6 +12,17 @@ ConfigBlock::ConfigBlock()
 	int index = m_configPath.ReverseFind(_T('\\'));
 	m_configPath = m_configPath.Left(index + 1);
 	m_configPath += L"CONFIG.ini";
+
+	// ≥ı ºªØ
+	////SetStringParameter(L"DeviceAddress", L"ip", L"192.168.8.131");
+	////SetIntParameter(L"DeviceAddress", L"port", 1234);
+	//SetIntParameter(L"UpgradePara", L"saveFile", 0);
+	//SetStringParameter(L"UpgradePara", L"savePath", m_configPath.Left(m_configPath.ReverseFind(_T('\\')) + 1) + L"firmware.dat");
+	//SetIntParameter(L"UpgradePara", L"recvLength", 1000);
+	//SetIntParameter(L"UpgradePara", L"length", 10000);
+	//SetIntParameter(L"DebugState", L"saveFile", 0);
+	//SetStringParameter(L"DebugState", L"savePath", m_configPath.Left(m_configPath.ReverseFind(_T('\\')) + 1) + L"debugState.dat");
+	//GetIntParameter(L"UpgradePara", L"flag", 0);
 }
 
 ConfigBlock::~ConfigBlock()
