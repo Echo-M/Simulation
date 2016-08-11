@@ -204,20 +204,20 @@ LRESULT MainDlg::OnReceivedCommand(WPARAM wParam, LPARAM lParam)
 		str += "设置本地时间\n";
 		m_tipsEdit.ReplaceSel(str);
 		break;
-	case RESULT_ECHO:
-		/*str = "";
-		m_tipsEdit.ReplaceSel(str);*/
-		break;
+	/*case RESULT_ECHO:
+		str = "";
+		m_tipsEdit.ReplaceSel(str);
+		break;*/
 	case RESULT_UPGRADE:
-		str += "正在升级。。。\n";
+		str += "开始升级\n";
 		m_tipsEdit.ReplaceSel(str);
 		break;
 	case RESULT_UPGRADE_DATA:
-		/*str += "接收升级数据包。。。\n";
-		m_tipsEdit.ReplaceSel(str);*/
+		str += "接收升级数据包\n";
+		m_tipsEdit.ReplaceSel(str);
 		break;
 	case RESULT_UPDATE_DEBUG_STATE:
-		str += "正在更新调试状态\n";
+		str += "更新调试状态\n";
 		m_tipsEdit.ReplaceSel(str);
 		break;
 	case RESULT_RESTART:
@@ -225,6 +225,18 @@ LRESULT MainDlg::OnReceivedCommand(WPARAM wParam, LPARAM lParam)
 		m_tipsEdit.ReplaceSel(str);
 		DeviceProxy::GetInstance()->Stop();
 		DeviceProxy::GetInstance()->Start();
+		break;
+	case RESULT_SET_IR_PARAMETERS:
+		str += "设置红外校准参数\n";
+		m_tipsEdit.ReplaceSel(str);
+		break;
+	case RESULT_GET_IR_VALUES:
+		str += "获取红外对管数值\n";
+		m_tipsEdit.ReplaceSel(str);
+		break;
+	case RESULT_UPDATE_IR_PARAMETERS:
+		str += "更新红外校准参数\n";
+		m_tipsEdit.ReplaceSel(str);
 		break;
 	default:
 		return false;
@@ -242,13 +254,13 @@ void MainDlg::OnBnClickedCheckConnectState()
 	UpdateData(TRUE);
 	if (!m_connectStateChkBtn.GetCheck())
 	{
-		m_connectStateChkBtn.SetWindowText(_T("启动验钞机"));
 		DeviceProxy::GetInstance()->Stop();
+		m_connectStateChkBtn.SetWindowText(_T("启动验钞机"));
 	}
 	else if (m_connectStateChkBtn.GetCheck())
 	{
-		m_connectStateChkBtn.SetWindowText(_T("关闭验钞机"));
 		DeviceProxy::GetInstance()->Start();
+		m_connectStateChkBtn.SetWindowText(_T("关闭验钞机"));
 	}
 	UpdateData(FALSE);
 }
@@ -257,7 +269,8 @@ void MainDlg::OnSize(UINT nType, int cx, int cy)
 {
 	CDialog::OnSize(nType, cx, cy);
 
-	if (::IsWindow(m_hWnd)) {
+	if (::IsWindow(m_hWnd)) 
+	{
 		m_layout.RecalcLayout();
 	}
 }

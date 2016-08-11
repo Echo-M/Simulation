@@ -26,7 +26,7 @@
 #define RESULT_SET_IR_PARAMETERS			0x0008
 #define RESULT_UPDATE_IR_PARAMETERS			0x0009
 #define RESULT_START_MASTER_SIGNAL_DETECT	0x0006
-#define RESULT_GET_CIS_PARAMETER			0x0009
+//#define RESULT_GET_CIS_PARAMETER			0x0009
 #define RESULT_TAKE_CIS_IMAGE				0x000a
 #define RESULT_SET_CIS_PARAMETER			0x000b
 #define RESULT_UPDATE_CIS_PARAMETER			0x000c
@@ -211,5 +211,9 @@ private:
 	bool SendUpgradeData(unsigned long cnt, const void* recvData, int recvDataLength);
 	bool SendUpgradeDebugState(unsigned long cnt, const void* recvData, int recvDataLength);
 	bool SendRestart(unsigned long cnt, const void* recvData, int recvDataLength);
+	bool SendSetIRParameters(unsigned long cnt, const void* recvData, int recvDataLength);
+	bool SendGetIRValues(unsigned long cnt, const void* recvData, int recvDataLength);
+	bool SendUpdateIRParameters(unsigned long cnt, const void* recvData, int recvDataLength);
+	bool SendStartMotor(unsigned long cnt, const void* recvData, int recvDataLength);
 };
 

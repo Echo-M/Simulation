@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include <memory>
 #include "DeviceProxy.h"
 #include "ConfigBlock.h"
 
@@ -116,7 +117,7 @@ bool DeviceProxy::Process()
 	// 监听请求
 	while (m_connecting)
 	{
-		SOCKET s = m_connect.Accept(100);
+		SOCKET s = m_connect.Accept(10000);
 		if (s != INVALID_SOCKET)// 收到连接请求且接收成功
 		{
 			m_connect.Attach(s);
@@ -231,6 +232,18 @@ bool DeviceProxy::SendResponse(unsigned short id, unsigned long cnt, const void*
 		break;
 	case RESULT_RESTART:
 		return SendRestart(cnt, recvData, recvDataLength);
+		break;
+	case RESULT_SET_IR_PARAMETERS:
+		return SendSetIRParameters(cnt, recvData, recvDataLength);
+		break;
+	case RESULT_GET_IR_VALUES:
+		return SendGetIRValues(cnt, recvData, recvDataLength);
+		break;
+	case RESULT_UPDATE_IR_PARAMETERS:
+		return SendUpdateIRParameters(cnt, recvData, recvDataLength);
+		break;
+	case RESULT_START_MOTOR:
+		return SendStartMotor(cnt, recvData, recvDataLength);
 		break;
 	default:
 		return false;
@@ -417,7 +430,7 @@ bool DeviceProxy::SendUpgradeData(unsigned long cnt, const void* recvData, int r
 	if (1 == ConfigBlock::GetInstance()->GetIntParameter(L"UpgradePara", L"saveFile", 0))
 	{
 		CString savePath = ConfigBlock::GetInstance()->GetStringParameter(L"UpgradePara", L"savePath", L"");
-		savePath += "firmware";
+		savePath += "upgradeData";
 		savePath += ConfigBlock::GetInstance()->GetStringParameter(L"DeviceInfo", L"firmwareVersion", L"");
 		savePath += ".dat";
 		CFile file(savePath, CFile::modeCreate | CFile::typeBinary | CFile::modeWrite | CFile::modeNoTruncate);
@@ -464,5 +477,65 @@ bool DeviceProxy::SendRestart(unsigned long cnt, const void* recvData, int recvD
 	if (recvDataLength != 0)
 		return SendResponse(cnt, 1, NULL, 0);
 
+	return SendResponse(cnt, status, NULL, 0);
+}
+
+// 红外对管的数据临时存放在这里，全局缓冲区
+//int IRBuffer[6];
+
+bool DeviceProxy::SendSetIRParameters(unsigned long cnt, const void* recvData, int recvDataLength)
+{
+	unsigned short status = 0;// 默认成功
+
+	int cntIR = ConfigBlock::GetInstance()->GetIntParameter(L"DeviceInfo", L"numberOfIR", 0);
+	if (recvDataLength != sizeof(int)*cntIR) // 应为 4*n，n是红外对管的个数
+		return SendResponse(cnt, 1, NULL, 0);
+
+	//在这里添加处理收到的数据的代码...
+	//memcpy(IRBuffer, recvData, recvDataLength);
+
+	return SendResponse(cnt, status, recvData, recvDataLength);
+}
+
+bool DeviceProxy::SendGetIRValues(unsigned long cnt, const void* recvData, int recvDataLength)
+{
+	unsigned short status = 0;// 默认成功
+
+	if (recvDataLength != 0) // 应0
+		return SendResponse(cnt, 1, NULL, 0);
+
+	// 填充发送数据，先随便发一个。。。
+	int cntIR = ConfigBlock::GetInstance()->GetIntParameter(L"DeviceInfo", L"numberOfIR", 0);
+	int motorFlag = ConfigBlock::GetInstance()->GetIntParameter(L"Motor", L"flag", 0);
+	int* buf = new int[cntIR];
+	for (int i = 0; i < cntIR; ++i)
+	{
+		buf[i] = motorFlag==0?700:3800;//有纸时是700，无纸是3800
+	}
+
+	return SendResponse(cnt, status, buf, sizeof(int)*cntIR);
+}
+
+bool DeviceProxy::SendUpdateIRParameters(unsigned long cnt, const void* recvData, int recvDataLength)
+{
+	unsigned short status = 0;// 默认成功
+
+	int cntIR = ConfigBlock::GetInstance()->GetIntParameter(L"DeviceInfo", L"numberOfIR", 0);
+	if (recvDataLength != sizeof(int)*cntIR) // 应为 4*n，n是红外对管的个数
+		return SendResponse(cnt, 1, NULL, 0);
+
+	//在这里添加处理收到的数据的代码...
+
+	return SendResponse(cnt, status, recvData, recvDataLength);
+}
+
+bool DeviceProxy::SendStartMotor(unsigned long cnt, const void* recvData, int recvDataLength)
+{
+	unsigned short status = 0;// 默认成功
+
+	if (recvDataLength != sizeof(int)) // 应为4
+		return SendResponse(cnt, 1, NULL, 0);
+
+	ConfigBlock::GetInstance()->SetIntParameter(L"Motor", L"flag", 1);
 	return SendResponse(cnt, status, NULL, 0);
 }
