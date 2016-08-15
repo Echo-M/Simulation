@@ -106,11 +106,8 @@
     <ClInclude Include="DeviceProxy.h" />
     <ClInclude Include="graphics.h" />
     <ClInclude Include="gui_resources.h" />
-    <ClInclude Include="Page.h" />
-    <ClInclude Include="PageDeviceInfo.h" />
-    <ClInclude Include="PageIRCalibration.h" />
-    <ClInclude Include="PageUpgrade.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="SettingDlg.h" />
     <ClInclude Include="Simulation.h" />
     <ClInclude Include="MainDlg.h" />
     <ClInclude Include="singleton.h" />
@@ -126,10 +123,7 @@
     <ClCompile Include="DeviceProxy.cpp" />
     <ClCompile Include="graphics.cpp" />
     <ClCompile Include="gui_resources.cpp" />
-    <ClCompile Include="Page.cpp" />
-    <ClCompile Include="PageDeviceInfo.cpp" />
-    <ClCompile Include="PageIRCalibration.cpp" />
-    <ClCompile Include="PageUpgrade.cpp" />
+    <ClCompile Include="SettingDlg.cpp" />
     <ClCompile Include="Simulation.cpp" />
     <ClCompile Include="MainDlg.cpp" />
     <ClCompile Include="status_bar.cpp" />

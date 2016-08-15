@@ -60,16 +60,7 @@
     <ClInclude Include="ConfigBlock.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Page.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="PageDeviceInfo.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="PageIRCalibration.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="PageUpgrade.h">
+    <ClInclude Include="SettingDlg.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -107,16 +98,7 @@
     <ClCompile Include="ConfigBlock.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Page.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="PageDeviceInfo.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="PageIRCalibration.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="PageUpgrade.cpp">
+    <ClCompile Include="SettingDlg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

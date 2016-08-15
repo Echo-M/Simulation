@@ -9,7 +9,7 @@
 #include "DeviceProxy.h"
 #include "gui_resources.h"
 #include "ConfigBlock.h"
-#include "Page.h"
+#include "SettingDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -84,7 +84,6 @@ BOOL MainDlg::OnInitDialog()
 	
 	// 布局
 	m_layout.Init(m_hWnd);
-	m_layout.AddDlgItem(IDC_CHECK_CONNECT_STATE, AnchorLayout::BOTTOM_RIGHT, AnchorLayout::BOTTOM_RIGHT);
 	m_layout.AddAnchor(m_statusBar.m_hWnd, AnchorLayout::BOTTOM_LEFT, AnchorLayout::BOTTOM_RIGHT);
 	m_layout.AddDlgItem(IDC_EDIT_TIPS, AnchorLayout::BOTTOM_LEFT, AnchorLayout::BOTTOM_RIGHT);
 	m_layout.AddDlgItem(IDC_STATIC_TIPS, AnchorLayout::BOTTOM_LEFT, AnchorLayout::BOTTOM_LEFT);
@@ -312,6 +311,13 @@ void MainDlg::OnDestroy()
 void MainDlg::OnBnClickedButtonSetting()
 {
 	// TODO:  在此添加控件通知处理程序代码
-	Page page(_T("设置"),this);
-	page.DoModal();
+	
+	if (m_connectStateChkBtn.GetCheck())
+	{
+		MessageBox(L"请先关闭点钞机！", L"错误", MB_OK | MB_ICONERROR);
+	}
+	else
+	{
+		dlg.DoModal();
+	}
 }

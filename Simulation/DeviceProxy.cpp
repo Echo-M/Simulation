@@ -430,7 +430,7 @@ bool DeviceProxy::SendUpgradeData(unsigned long cnt, const void* recvData, int r
 	if (0 == ConfigBlock::GetInstance()->GetIntParameter(L"UpgradePara", L"saveFile", 0))
 	{
 		CString savePath = ConfigBlock::GetInstance()->GetStringParameter(L"UpgradePara", L"savePath", L"");
-		savePath += "upgradeData";
+		savePath += "\\upgradeData";
 		savePath += ConfigBlock::GetInstance()->GetStringParameter(L"DeviceInfo", L"firmwareVersion", L"");
 		savePath += ".dat";
 		CFile file(savePath, CFile::modeCreate | CFile::typeBinary | CFile::modeWrite | CFile::modeNoTruncate);

@@ -6,6 +6,7 @@
 #include "afxwin.h"
 #include "status_bar.h"
 #include "anchor_layout.h"
+#include "SettingDlg.h"
 
 // CSimulationDlg ¶Ô»°¿ò
 class MainDlg : public CDialog
@@ -27,7 +28,8 @@ protected:
 	StatusBar		m_statusBar;
 	CButton			m_connectStateChkBtn;
 	CEdit			m_tipsEdit;
-	CButton m_settingBtn;
+	CButton			m_settingBtn;
+	SettingDlg		dlg;
 
 	virtual BOOL OnInitDialog();
 	afx_msg void OnPaint();
