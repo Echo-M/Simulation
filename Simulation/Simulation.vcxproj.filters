@@ -57,13 +57,19 @@
     <ClInclude Include="targetver.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="button.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="label.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="ConfigBlock.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Page.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="PageDeviceInfo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="PageIRCalibration.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="PageUpgrade.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -98,13 +104,19 @@
     <ClCompile Include="anchor_layout.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="button.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="label.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="ConfigBlock.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Page.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="PageDeviceInfo.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="PageIRCalibration.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="PageUpgrade.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

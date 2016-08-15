@@ -117,7 +117,7 @@ bool DeviceProxy::Process()
 	// 监听请求
 	while (m_connecting)
 	{
-		SOCKET s = m_connect.Accept(10000);
+		SOCKET s = m_connect.Accept(18000);
 		if (s != INVALID_SOCKET)// 收到连接请求且接收成功
 		{
 			m_connect.Attach(s);
@@ -135,10 +135,10 @@ bool DeviceProxy::Process()
 		ReceiveResult result;
 		if (!ReceiveCommand(&result))
 		{
-			TRACE("接收指令与回应失败！\n");
+			//TRACE("接收指令与回应失败！\n");
 		}
 		
-		std::this_thread::sleep_for(std::chrono::milliseconds(200));
+		//std::this_thread::sleep_for(std::chrono::milliseconds(200));
 	}
 	return true;
 }
@@ -159,11 +159,11 @@ bool DeviceProxy::Stop()
 {
 	m_connecting = false;
 	m_connectState = STATE_DEVICE_CLOSED;
+	m_connect.Close();
 	PostMessage(AfxGetApp()->GetMainWnd()->GetSafeHwnd(), WM_STATE_CONNECT_CHANGED, 0, 1);
 	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 	if (m_thrConnect.joinable())
 		m_thrConnect.join();
-	m_connect.Close();
 	return true;
 }
 
@@ -273,7 +273,7 @@ bool DeviceProxy::SendResponse(unsigned long cnt, unsigned short status, const v
 	}
 
 	m_curCommand.status = status;
-	PostMessage(AfxGetApp()->GetMainWnd()->GetSafeHwnd(), WM_RECEIVED_COMMAND, 0, 1);
+	SendMessage(AfxGetApp()->GetMainWnd()->GetSafeHwnd(), WM_RECEIVED_COMMAND, 0, 1);
 
 	return true;
 }
@@ -312,8 +312,8 @@ bool DeviceProxy::SendDeviceInfo(unsigned long cnt, const void* recvData, int re
 	deviceInfo.selfTestState = config->GetIntParameter(L"DeviceInfo", L"selfTestState", 0);
 
 	str = config->GetStringParameter(L"DeviceInfo", L"debugState", L"");
-	int index = 0;
 	CString temp = L"";
+	int index = 0;
 	for (int i = 0; ; i++)
 	{
 		if (str[i] != ','&&i < str.GetLength())
@@ -427,7 +427,7 @@ bool DeviceProxy::SendUpgradeData(unsigned long cnt, const void* recvData, int r
 		return SendResponse(cnt, 1, NULL, 0);
 
 	//保存文件
-	if (1 == ConfigBlock::GetInstance()->GetIntParameter(L"UpgradePara", L"saveFile", 0))
+	if (0 == ConfigBlock::GetInstance()->GetIntParameter(L"UpgradePara", L"saveFile", 0))
 	{
 		CString savePath = ConfigBlock::GetInstance()->GetStringParameter(L"UpgradePara", L"savePath", L"");
 		savePath += "upgradeData";
@@ -448,24 +448,17 @@ bool DeviceProxy::SendUpgradeDebugState(unsigned long cnt, const void* recvData,
 	if (recvDataLength != 64)
 		return SendResponse(cnt, 1, NULL, 0);
 	
-	//保存文件
-	if (1 == ConfigBlock::GetInstance()->GetIntParameter(L"DebugState", L"saveFile", 0))
-	{
-		CString savePath = ConfigBlock::GetInstance()->GetStringParameter(L"DebugState", L"savePath", L"");
-		savePath += "debugState";
-		SYSTEMTIME st;
-		GetLocalTime(&st);
-		char time[20];
-		sprintf_s(time, sizeof(st), "%4d%2d%2d%2d%2d%2d", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
-		for (int i = 0; time[i]; ++i)
-		{
-			if (time[i] == ' ') time[i] = '0';
-		}
-		savePath += time;
-		savePath += ".dat";
-		CFile file(savePath, CFile::modeCreate | CFile::typeBinary | CFile::modeWrite);
-		file.Write(recvData, recvDataLength);
-	}
+	//存到DeviceInfo的debugState中
+	int iTemp[16];
+	memcpy(iTemp, recvData, recvDataLength);
+	CString strTemp;
+	strTemp.Format(L"%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+		iTemp[0], iTemp[1], iTemp[2], iTemp[3], iTemp[4], iTemp[5], iTemp[6], iTemp[7], iTemp[8], iTemp[9], iTemp[10], iTemp[11], iTemp[12], iTemp[13], iTemp[14], iTemp[15]);
+	ConfigBlock::GetInstance()->SetStringParameter(L"DeviceInfo", L"debugState", strTemp);
+
+	//
+	ConfigBlock::GetInstance()->SetIntParameter(L"UpgradePara", L"flag", 1);
+	ConfigBlock::GetInstance()->SetIntParameter(L"IRCalibrationPara", L"flag", 1);
 	
 	return SendResponse(cnt, status, NULL, 0);
 }
@@ -480,11 +473,10 @@ bool DeviceProxy::SendRestart(unsigned long cnt, const void* recvData, int recvD
 	return SendResponse(cnt, status, NULL, 0);
 }
 
-// 红外对管的数据临时存放在这里，全局缓冲区
-//int IRBuffer[6];
-
 bool DeviceProxy::SendSetIRParameters(unsigned long cnt, const void* recvData, int recvDataLength)
 {
+	SendMessage(AfxGetApp()->GetMainWnd()->GetSafeHwnd(), WM_RECEIVED_COMMAND_SET_IR_PARA, 0, 1);
+
 	unsigned short status = 0;// 默认成功
 
 	int cntIR = ConfigBlock::GetInstance()->GetIntParameter(L"DeviceInfo", L"numberOfIR", 0);
@@ -492,7 +484,7 @@ bool DeviceProxy::SendSetIRParameters(unsigned long cnt, const void* recvData, i
 		return SendResponse(cnt, 1, NULL, 0);
 
 	//在这里添加处理收到的数据的代码...
-	//memcpy(IRBuffer, recvData, recvDataLength);
+	//收到的值应该在1300~3500之间
 
 	return SendResponse(cnt, status, recvData, recvDataLength);
 }
@@ -504,16 +496,52 @@ bool DeviceProxy::SendGetIRValues(unsigned long cnt, const void* recvData, int r
 	if (recvDataLength != 0) // 应0
 		return SendResponse(cnt, 1, NULL, 0);
 
-	// 填充发送数据，先随便发一个。。。
+	// 填充发送数据
 	int cntIR = ConfigBlock::GetInstance()->GetIntParameter(L"DeviceInfo", L"numberOfIR", 0);
-	int motorFlag = ConfigBlock::GetInstance()->GetIntParameter(L"Motor", L"flag", 0);
+	int paper = ConfigBlock::GetInstance()->GetIntParameter(L"IRCalibrationPara", L"paper", 0);
+
+	int* state = new int[cntIR];
+	int index = 0;
+	CString str = ConfigBlock::GetInstance()->GetStringParameter(L"IRCalibrationPara", L"IRState", L"");
+	CString temp = L"";
+	for (int i = 0;; i++)
+	{
+		if (str[i] != ','&&i < str.GetLength())
+			temp += str[i];
+		else if (str[i] == ',' || i == str.GetLength())
+		{
+			swscanf(temp, _T("%d"), &(state[index++]));
+			temp = L"";
+			if (i == str.GetLength())
+				break;
+		}
+	}
 	int* buf = new int[cntIR];
 	for (int i = 0; i < cntIR; ++i)
 	{
-		buf[i] = motorFlag==0?700:3800;//有纸时是700，无纸是3800
+		if (state[i] == 0) // 该红外对管是好的
+		{
+			srand((int)time(NULL) + i*100);
+			buf[i] = paper == 0 ? 650 + rand() % 100 : 3750 + rand() % 100; //有纸时是650-700，无纸是3750-3850
+		}
+		else
+		{
+			buf[i] = 0; //不管是有纸还是无纸都返回0
+		}
 	}
 
-	return SendResponse(cnt, status, buf, sizeof(int)*cntIR);
+	if (SendResponse(cnt, status, buf, sizeof(int)*cntIR))
+	{
+		delete buf;
+		delete state;
+		return true;
+	}
+	else
+	{
+		delete buf;
+		delete state;
+		return false;
+	}
 }
 
 bool DeviceProxy::SendUpdateIRParameters(unsigned long cnt, const void* recvData, int recvDataLength)
@@ -536,6 +564,6 @@ bool DeviceProxy::SendStartMotor(unsigned long cnt, const void* recvData, int re
 	if (recvDataLength != sizeof(int)) // 应为4
 		return SendResponse(cnt, 1, NULL, 0);
 
-	ConfigBlock::GetInstance()->SetIntParameter(L"Motor", L"flag", 1);
+	ConfigBlock::GetInstance()->SetIntParameter(L"IRCalibrationPara", L"paper", 1);//无纸
 	return SendResponse(cnt, status, NULL, 0);
 }

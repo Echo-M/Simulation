@@ -3,9 +3,11 @@
 #include "TcpSocket.h"
 #include <thread>
 
-#define WM_STATE_CONNECT_CHANGED		WM_USER + 1
-#define WM_RECEIVED_COMMAND				WM_USER + 2
-#define WM_RECEIVED_COMMAND_UPGRADE		WM_USER + 3
+#define WM_STATE_CONNECT_CHANGED			WM_USER + 1
+#define WM_RECEIVED_COMMAND					WM_USER + 2
+#define WM_RECEIVED_COMMAND_UPGRADE			WM_USER + 3
+#define WM_RECEIVED_COMMAND_START_MOTOR		WM_USER + 4
+#define WM_RECEIVED_COMMAND_SET_IR_PARA		WM_USER + 5
 
 
 #define SERIAL_NUMBER_LENGTH		24 //序列号长度
@@ -198,19 +200,26 @@ public:
 		return m_curCommand;
 	}
 private:
+	//指令接收与处理线程
 	bool WINAPI Process();
+
 	bool ReceiveCommand(ReceiveResult* result);
+
 	bool SendResponse(ReceiveResult* result);
 	bool SendResponse(unsigned short id, unsigned long cnt, const void* recvData, int recvDataLength);
 	bool SendResponse(unsigned long cnt, unsigned short status, const void* data, int dataLength);
+
+	bool SendEcho(unsigned long cnt, const void* recvData, int recvDataLength);
+	bool SendUpgradeDebugState(unsigned long cnt, const void* recvData, int recvDataLength);
+
 	bool SendDeviceInfo(unsigned long cnt, const void* recvData, int recvDataLength);
 	bool SendCISCorrectionTable(unsigned long cnt, const void* recvData, int recvDataLength);
 	bool SendSetTime(unsigned long cnt, const void* recvData, int recvDataLength);
-	bool SendEcho(unsigned long cnt, const void* recvData, int recvDataLength);
+
 	bool SendUpgrade(unsigned long cnt, const void* recvData, int recvDataLength);
 	bool SendUpgradeData(unsigned long cnt, const void* recvData, int recvDataLength);
-	bool SendUpgradeDebugState(unsigned long cnt, const void* recvData, int recvDataLength);
 	bool SendRestart(unsigned long cnt, const void* recvData, int recvDataLength);
+
 	bool SendSetIRParameters(unsigned long cnt, const void* recvData, int recvDataLength);
 	bool SendGetIRValues(unsigned long cnt, const void* recvData, int recvDataLength);
 	bool SendUpdateIRParameters(unsigned long cnt, const void* recvData, int recvDataLength);

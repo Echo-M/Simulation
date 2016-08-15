@@ -9,6 +9,7 @@
 #include "DeviceProxy.h"
 #include "gui_resources.h"
 #include "ConfigBlock.h"
+#include "Page.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -17,6 +18,7 @@
 // 状态栏编号
 #define STATUSBAR_CONNECT_STATE		1
 #define STATUSBAR_DEVICE_INFO		2
+#define STATUSBAR_TIPS				3
 
 // CSimulationDlg 对话框
 
@@ -33,6 +35,7 @@ void MainDlg::DoDataExchange(CDataExchange* pDX)
 	CDialog::DoDataExchange(pDX);
 	DDX_Control(pDX, IDC_CHECK_CONNECT_STATE, m_connectStateChkBtn);
 	DDX_Control(pDX, IDC_EDIT_TIPS, m_tipsEdit);
+	DDX_Control(pDX, IDC_BUTTON_SETTING, m_settingBtn);
 }
 
 BEGIN_MESSAGE_MAP(MainDlg, CDialog)
@@ -46,7 +49,9 @@ BEGIN_MESSAGE_MAP(MainDlg, CDialog)
 	ON_MESSAGE(WM_STATE_CONNECT_CHANGED, &MainDlg::OnConnectStateChanged)
 	ON_MESSAGE(WM_RECEIVED_COMMAND_UPGRADE, &MainDlg::OnReceivedCommandUpgrade)
 	ON_MESSAGE(WM_RECEIVED_COMMAND,&MainDlg::OnReceivedCommand)
+	ON_MESSAGE(WM_RECEIVED_COMMAND_SET_IR_PARA, &MainDlg::OnReceivedCommandSetIRPara)
 	ON_BN_CLICKED(IDC_CHECK_CONNECT_STATE, &MainDlg::OnBnClickedCheckConnectState)
+	ON_BN_CLICKED(IDC_BUTTON_SETTING, &MainDlg::OnBnClickedButtonSetting)
 END_MESSAGE_MAP()
 
 
@@ -71,6 +76,7 @@ BOOL MainDlg::OnInitDialog()
 	str = "版本: ";
 	str += ConfigBlock::GetInstance()->GetStringParameter(L"DeviceInfo", L"firmwareVersion", L"");
 	m_statusBar.AddPanel(STATUSBAR_DEVICE_INFO, str, NULL, StatusBar::PANEL_ALIGN_RIGHT);
+	m_statusBar.AddPanel(STATUSBAR_TIPS, L"", NULL, StatusBar::PANEL_ALIGN_LEFT);
 
 	// 点钞机状态按钮
 	m_connectStateChkBtn.SetCheck(0);
@@ -78,9 +84,10 @@ BOOL MainDlg::OnInitDialog()
 	
 	// 布局
 	m_layout.Init(m_hWnd);
-	m_layout.AddDlgItem(IDC_CHECK_CONNECT_STATE, AnchorLayout::TOP_LEFT, AnchorLayout::TOP_LEFT);
+	m_layout.AddDlgItem(IDC_CHECK_CONNECT_STATE, AnchorLayout::BOTTOM_RIGHT, AnchorLayout::BOTTOM_RIGHT);
 	m_layout.AddAnchor(m_statusBar.m_hWnd, AnchorLayout::BOTTOM_LEFT, AnchorLayout::BOTTOM_RIGHT);
 	m_layout.AddDlgItem(IDC_EDIT_TIPS, AnchorLayout::BOTTOM_LEFT, AnchorLayout::BOTTOM_RIGHT);
+	m_layout.AddDlgItem(IDC_STATIC_TIPS, AnchorLayout::BOTTOM_LEFT, AnchorLayout::BOTTOM_LEFT);
 
 	// 显示
 	ShowWindow(SW_SHOW);
@@ -166,17 +173,33 @@ LRESULT MainDlg::OnConnectStateChanged(WPARAM wParam, LPARAM lParam)
 
 LRESULT MainDlg::OnReceivedCommandUpgrade(WPARAM wParam, LPARAM lParam)
 {
-	if (MessageBox(L"您确定要进行升级吗？", L"点钞机升级配置", MB_YESNO | MB_ICONQUESTION) == IDYES)
+	if (MessageBox(L"确定要进行升级吗？", L"点钞机升级配置", MB_YESNO | MB_ICONQUESTION) == IDYES)
 	{
 		ConfigBlock::GetInstance()->SetIntParameter(L"UpgradePara", L"flag", 0);
+		m_statusBar.SetPanel(STATUSBAR_TIPS, L"点钞机正在升级。。。", NULL);
 	}
 	else
 	{
 		ConfigBlock::GetInstance()->SetIntParameter(L"UpgradePara", L"flag", 1);
+		m_statusBar.SetPanel(STATUSBAR_TIPS, L"点钞机升级失败", NULL);
 	}
 	CString str = L"版本: ";
 	str += ConfigBlock::GetInstance()->GetStringParameter(L"DeviceInfo", L"firmwareVersion", L"");
 	m_statusBar.SetPanel(STATUSBAR_DEVICE_INFO, str, NULL);
+	return true;
+}
+
+LRESULT MainDlg::OnReceivedCommandSetIRPara(WPARAM wParam, LPARAM lParam)
+{
+	if (ConfigBlock::GetInstance()->GetIntParameter(L"IRCalibrationPara", L"flag", 0) == 1)//第一次，开始IR校准
+	{
+		if (MessageBox(L"是否放入校准纸？", L"点钞机红外校准配置", MB_OK | MB_ICONQUESTION) == IDOK)
+		{
+			ConfigBlock::GetInstance()->SetIntParameter(L"IRCalibrationPara", L"paper", 0);
+			ConfigBlock::GetInstance()->SetIntParameter(L"IRCalibrationPara", L"flag", 0);//进入调试状态
+			m_statusBar.SetPanel(STATUSBAR_TIPS, L"已放入校准纸。", NULL);
+		}
+	}
 	return true;
 }
 
@@ -193,56 +216,55 @@ LRESULT MainDlg::OnReceivedCommand(WPARAM wParam, LPARAM lParam)
 	switch (curCommand.id)
 	{
 	case RESULT_GET_DEVICE_INFO:
-		str += "发送设备信息\n";
-		m_tipsEdit.ReplaceSel(str);
+		str += "发送设备信息\r\n";
 		break;
 	case RESULT_GET_CIS_CORRECTION_TABLE:
-		str += "发送CIS图像校准表\n";
-		m_tipsEdit.ReplaceSel(str);
+		str += "发送CIS图像校准表\r\n";
 		break;
 	case RESULT_SET_TIME:
-		str += "设置本地时间\n";
-		m_tipsEdit.ReplaceSel(str);
+		str += "设置本地时间\r\n";
 		break;
 	/*case RESULT_ECHO:
 		str = "";
 		m_tipsEdit.ReplaceSel(str);
 		break;*/
 	case RESULT_UPGRADE:
-		str += "开始升级\n";
-		m_tipsEdit.ReplaceSel(str);
+		str += "开始升级\r\n";
 		break;
 	case RESULT_UPGRADE_DATA:
-		str += "接收升级数据包\n";
-		m_tipsEdit.ReplaceSel(str);
+		str += "接收升级数据包\r\n";
 		break;
 	case RESULT_UPDATE_DEBUG_STATE:
-		str += "更新调试状态\n";
-		m_tipsEdit.ReplaceSel(str);
+		str += "更新调试状态\r\n";
 		break;
 	case RESULT_RESTART:
-		str += "设备重启\n";
-		m_tipsEdit.ReplaceSel(str);
-		DeviceProxy::GetInstance()->Stop();
-		DeviceProxy::GetInstance()->Start();
+		str += "设备重启\r\n";
+		/*DeviceProxy::GetInstance()->Stop();
+		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+		DeviceProxy::GetInstance()->Start();*/
 		break;
 	case RESULT_SET_IR_PARAMETERS:
-		str += "设置红外校准参数\n";
-		m_tipsEdit.ReplaceSel(str);
+		str += "设置红外校准参数\r\n";
 		break;
 	case RESULT_GET_IR_VALUES:
-		str += "获取红外对管数值\n";
-		m_tipsEdit.ReplaceSel(str);
+		str += "获取红外对管数值\r\n";
 		break;
 	case RESULT_UPDATE_IR_PARAMETERS:
-		str += "更新红外校准参数\n";
-		m_tipsEdit.ReplaceSel(str);
+		str += "更新红外校准参数\r\n";
+		break;
+	case RESULT_START_MOTOR:
+		str += "转动电机\r\n";
+		if (ConfigBlock::GetInstance()->GetIntParameter(L"IRCalibrationPara", L"paper", 1)==1)
+		{
+			m_statusBar.SetPanel(STATUSBAR_TIPS, L"无校准纸。", NULL);
+		}
 		break;
 	default:
 		return false;
 		break;
 	}
-	
+
+	m_tipsEdit.ReplaceSel(str);
 	m_tipsEdit.LineScroll(m_tipsEdit.GetLineCount());
 	return true;
 
@@ -284,4 +306,12 @@ void MainDlg::OnDestroy()
 {
 	CDialog::OnDestroy();
 	DeviceProxy::GetInstance()->Stop();
+}
+
+
+void MainDlg::OnBnClickedButtonSetting()
+{
+	// TODO:  在此添加控件通知处理程序代码
+	Page page(_T("设置"),this);
+	page.DoModal();
 }

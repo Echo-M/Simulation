@@ -103,11 +103,13 @@
   <ItemGroup>
     <ClInclude Include="anchor_layout.h" />
     <ClInclude Include="bitmap.h" />
-    <ClInclude Include="button.h" />
     <ClInclude Include="DeviceProxy.h" />
     <ClInclude Include="graphics.h" />
     <ClInclude Include="gui_resources.h" />
-    <ClInclude Include="label.h" />
+    <ClInclude Include="Page.h" />
+    <ClInclude Include="PageDeviceInfo.h" />
+    <ClInclude Include="PageIRCalibration.h" />
+    <ClInclude Include="PageUpgrade.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="Simulation.h" />
     <ClInclude Include="MainDlg.h" />
@@ -121,11 +123,13 @@
   <ItemGroup>
     <ClCompile Include="anchor_layout.cpp" />
     <ClCompile Include="bitmap.cpp" />
-    <ClCompile Include="button.cpp" />
     <ClCompile Include="DeviceProxy.cpp" />
     <ClCompile Include="graphics.cpp" />
     <ClCompile Include="gui_resources.cpp" />
-    <ClCompile Include="label.cpp" />
+    <ClCompile Include="Page.cpp" />
+    <ClCompile Include="PageDeviceInfo.cpp" />
+    <ClCompile Include="PageIRCalibration.cpp" />
+    <ClCompile Include="PageUpgrade.cpp" />
     <ClCompile Include="Simulation.cpp" />
     <ClCompile Include="MainDlg.cpp" />
     <ClCompile Include="status_bar.cpp" />
