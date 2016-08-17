@@ -18,7 +18,6 @@
 // 状态栏编号
 #define STATUSBAR_CONNECT_STATE		1
 #define STATUSBAR_DEVICE_INFO		2
-#define STATUSBAR_TIPS				3
 
 // CSimulationDlg 对话框
 
@@ -50,6 +49,7 @@ BEGIN_MESSAGE_MAP(MainDlg, CDialog)
 	ON_MESSAGE(WM_RECEIVED_COMMAND_UPGRADE, &MainDlg::OnReceivedCommandUpgrade)
 	ON_MESSAGE(WM_RECEIVED_COMMAND,&MainDlg::OnReceivedCommand)
 	ON_MESSAGE(WM_RECEIVED_COMMAND_SET_IR_PARA, &MainDlg::OnReceivedCommandSetIRPara)
+	ON_MESSAGE(WM_RUN_CASH_STOPPED,&MainDlg::OnRunCashStopped)
 	ON_BN_CLICKED(IDC_CHECK_CONNECT_STATE, &MainDlg::OnBnClickedCheckConnectState)
 	ON_BN_CLICKED(IDC_BUTTON_SETTING, &MainDlg::OnBnClickedButtonSetting)
 END_MESSAGE_MAP()
@@ -76,7 +76,6 @@ BOOL MainDlg::OnInitDialog()
 	str = "版本: ";
 	str += ConfigBlock::GetInstance()->GetStringParameter(L"DeviceInfo", L"firmwareVersion", L"");
 	m_statusBar.AddPanel(STATUSBAR_DEVICE_INFO, str, NULL, StatusBar::PANEL_ALIGN_RIGHT);
-	m_statusBar.AddPanel(STATUSBAR_TIPS, L"", NULL, StatusBar::PANEL_ALIGN_LEFT);
 
 	// 点钞机状态按钮
 	m_connectStateChkBtn.SetCheck(0);
@@ -175,12 +174,10 @@ LRESULT MainDlg::OnReceivedCommandUpgrade(WPARAM wParam, LPARAM lParam)
 	if (MessageBox(L"确定要进行升级吗？", L"点钞机升级配置", MB_YESNO | MB_ICONQUESTION) == IDYES)
 	{
 		ConfigBlock::GetInstance()->SetIntParameter(L"UpgradePara", L"flag", 0);
-		m_statusBar.SetPanel(STATUSBAR_TIPS, L"点钞机正在升级。。。", NULL);
 	}
 	else
 	{
 		ConfigBlock::GetInstance()->SetIntParameter(L"UpgradePara", L"flag", 1);
-		m_statusBar.SetPanel(STATUSBAR_TIPS, L"点钞机升级失败", NULL);
 	}
 	CString str = L"版本: ";
 	str += ConfigBlock::GetInstance()->GetStringParameter(L"DeviceInfo", L"firmwareVersion", L"");
@@ -196,7 +193,6 @@ LRESULT MainDlg::OnReceivedCommandSetIRPara(WPARAM wParam, LPARAM lParam)
 		{
 			ConfigBlock::GetInstance()->SetIntParameter(L"IRCalibrationPara", L"paper", 0);
 			ConfigBlock::GetInstance()->SetIntParameter(L"IRCalibrationPara", L"flag", 0);//进入调试状态
-			m_statusBar.SetPanel(STATUSBAR_TIPS, L"已放入校准纸。", NULL);
 		}
 	}
 	return true;
@@ -229,7 +225,6 @@ LRESULT MainDlg::OnReceivedCommand(WPARAM wParam, LPARAM lParam)
 		break;*/
 	case RESULT_UPGRADE:
 		str += "开始升级\r\n";
-		break;
 	case RESULT_UPGRADE_DATA:
 		str += "接收升级数据包\r\n";
 		break;
@@ -253,11 +248,9 @@ LRESULT MainDlg::OnReceivedCommand(WPARAM wParam, LPARAM lParam)
 		break;
 	case RESULT_START_MOTOR:
 		str += "转动电机\r\n";
-		if (ConfigBlock::GetInstance()->GetIntParameter(L"IRCalibrationPara", L"paper", 1)==1)
-		{
-			m_statusBar.SetPanel(STATUSBAR_TIPS, L"无校准纸。", NULL);
-		}
 		break;
+	case RESULT_START_RUN_CASH_DETECT:
+		str += "走钞信号\r\n";;
 	default:
 		return false;
 		break;
@@ -272,7 +265,6 @@ LRESULT MainDlg::OnReceivedCommand(WPARAM wParam, LPARAM lParam)
 void MainDlg::OnBnClickedCheckConnectState()
 {
 	// TODO:  在此添加控件通知处理程序代码
-	UpdateData(TRUE);
 	if (!m_connectStateChkBtn.GetCheck())
 	{
 		DeviceProxy::GetInstance()->Stop();
@@ -283,7 +275,6 @@ void MainDlg::OnBnClickedCheckConnectState()
 		DeviceProxy::GetInstance()->Start();
 		m_connectStateChkBtn.SetWindowText(_T("关闭验钞机"));
 	}
-	UpdateData(FALSE);
 }
 
 void MainDlg::OnSize(UINT nType, int cx, int cy)
@@ -303,8 +294,8 @@ BOOL MainDlg::OnEraseBkgnd(CDC* pDC)
 
 void MainDlg::OnDestroy()
 {
-	CDialog::OnDestroy();
 	DeviceProxy::GetInstance()->Stop();
+	CDialog::OnDestroy();
 }
 
 
@@ -320,4 +311,10 @@ void MainDlg::OnBnClickedButtonSetting()
 	{
 		dlg.DoModal();
 	}
+}
+
+LRESULT MainDlg::OnRunCashStopped(WPARAM wParam, LPARAM lParam)
+{
+	DeviceProxy::GetInstance()->StopSendingCash();
+	return TRUE;
 }

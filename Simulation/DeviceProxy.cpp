@@ -2,6 +2,8 @@
 #include <memory>
 #include "DeviceProxy.h"
 #include "ConfigBlock.h"
+#include "CirQueue.h"
+#include "thread_inl.h"
 
 // ReceiveResult
 ReceiveResult::ReceiveResult()
@@ -155,6 +157,18 @@ bool DeviceProxy::Start()
 	return true;
 }
 
+bool DeviceProxy::StartSendingCash()
+{
+	if (m_sendingCash) // 若线程connect已在运行
+	{
+		return false;
+	}
+	m_sendingCash = true;
+	m_thrSendCash = std::thread([this](){this->SendCashDataProc(); });
+
+	return true;
+}
+
 bool DeviceProxy::Stop()
 {
 	m_connecting = false;
@@ -164,6 +178,15 @@ bool DeviceProxy::Stop()
 	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 	if (m_thrConnect.joinable())
 		m_thrConnect.join();
+	return true;
+}
+
+bool DeviceProxy::StopSendingCash()
+{
+	m_sendingCash = false;
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+	if (m_thrSendCash.joinable())
+		m_thrSendCash.join();
 	return true;
 }
 
@@ -206,6 +229,8 @@ bool DeviceProxy::SendResponse(ReceiveResult* result)
 
 bool DeviceProxy::SendResponse(unsigned short id, unsigned long cnt, const void* recvData, int recvDataLength)
 {
+	CriticalSection::ScopedLocker locker(m_criSecConnect);
+
 	m_curCommand.id = id;
 	switch(id)
 	{
@@ -245,6 +270,8 @@ bool DeviceProxy::SendResponse(unsigned short id, unsigned long cnt, const void*
 	case RESULT_START_MOTOR:
 		return SendStartMotor(cnt, recvData, recvDataLength);
 		break;
+	case RESULT_START_RUN_CASH_DETECT:
+		return SendStartRunCashDetect(cnt, recvData, recvDataLength);
 	default:
 		return false;
 		break;
@@ -430,7 +457,7 @@ bool DeviceProxy::SendUpgradeData(unsigned long cnt, const void* recvData, int r
 	if (0 == ConfigBlock::GetInstance()->GetIntParameter(L"UpgradePara", L"saveFile", 0))
 	{
 		CString savePath = ConfigBlock::GetInstance()->GetStringParameter(L"UpgradePara", L"savePath", L"");
-		savePath += "\\upgradeData";
+		savePath += "upgradeData";
 		savePath += ConfigBlock::GetInstance()->GetStringParameter(L"DeviceInfo", L"firmwareVersion", L"");
 		savePath += ".dat";
 		CFile file(savePath, CFile::modeCreate | CFile::typeBinary | CFile::modeWrite | CFile::modeNoTruncate);
@@ -532,14 +559,14 @@ bool DeviceProxy::SendGetIRValues(unsigned long cnt, const void* recvData, int r
 
 	if (SendResponse(cnt, status, buf, sizeof(int)*cntIR))
 	{
-		delete buf;
-		delete state;
+		delete [] buf;
+		delete [] state;
 		return true;
 	}
 	else
 	{
-		delete buf;
-		delete state;
+		delete [] buf;
+		delete [] state;
 		return false;
 	}
 }
@@ -566,4 +593,300 @@ bool DeviceProxy::SendStartMotor(unsigned long cnt, const void* recvData, int re
 
 	ConfigBlock::GetInstance()->SetIntParameter(L"IRCalibrationPara", L"paper", 1);//无纸
 	return SendResponse(cnt, status, NULL, 0);
+}
+
+bool DeviceProxy::SendStartRunCashDetect(unsigned long cnt, const void* recvData, int recvDataLength)
+{
+	unsigned short status = 0; // 默认成功
+
+	if (recvDataLength != sizeof(DataLevel))
+		return SendResponse(cnt, 1, NULL, 0);
+
+	//接收
+	DataLevel level;
+	memcpy(&level, recvData, recvDataLength);
+
+	//连接
+	char *ip = inet_ntoa(level.hostAddr.sin_addr);
+	CString strip(ip);
+	m_sendCash.Connect(strip, htons(level.hostAddr.sin_port), 10000);
+
+	//回应
+	if (!SendResponse(cnt, status, NULL, 0))
+		return false;
+
+	//发数据
+	StartSendingCash();
+
+	return true;
+}
+
+bool DeviceProxy::SendCashDataProc()
+{
+	if (!m_sendCash.IsOpened())
+		return false;
+
+	m_sendCash.SetTimeout(8000);
+
+	CashInfo cashInfo;
+	CString fileName;
+	CString filePath;
+	CFileFind ff;
+	CString dataDir = ConfigBlock::GetInstance()->GetStringParameter(L"RunCashPara", L"dataPath", L"");;
+	if (dataDir.Right(1) != "\\")
+		dataDir += "\\";
+	dataDir += "*.raw";
+
+	//CString date, time, title, side;
+
+	bool ret = ff.FindFile(dataDir);
+	SendStartRunCashSignal();
+	while (ret)
+	{
+		ret = ff.FindNextFile();
+
+		if (ff.IsDirectory())
+			continue;
+		if (!(fileName = ff.GetFileTitle()))
+			continue;
+
+		// 解析文件名
+		int index = 0;
+		CString temp = L"";
+		for (int i = 0;; i++)
+		{
+			if (fileName[i] != '_'&&i < fileName.GetLength())
+				temp += fileName[i];
+			else if (fileName[i] == '_' || i == fileName.GetLength())
+			{
+				index++;
+				switch (index)
+				{
+					//case 1:
+					//date = temp;
+					//break;
+					//case 2:
+					//time = temp;
+					//break;
+				case 3:
+					swscanf_s(temp, _T("%d"), &(cashInfo.count));
+					break;
+				case 4:
+					//error = temp;
+					swscanf_s(temp.Mid(3), _T("%d"), &(cashInfo.error));
+					break;
+				case 5:
+					//lasterr = temp;
+					break;
+				case 6:
+					//den = temp;
+					swscanf_s(temp.Mid(3), _T("%d"), &(cashInfo.denomination));
+					break;
+				case 7:
+					//dir = temp;
+					swscanf_s(temp.Mid(3), _T("%d"), &(cashInfo.direction));
+					break;
+				case 8:
+					//ver = temp;
+					swscanf_s(temp.Mid(3), _T("%d"), &(cashInfo.version));
+					break;
+				case 9:
+					//sn = temp;
+					WideCharToMultiByte(CP_ACP, 0, temp, -1, cashInfo.sn, WideCharToMultiByte(CP_ACP, 0, temp, -1, NULL, 0, NULL, NULL), NULL, NULL);
+					break;
+					//case 10:
+					//	title = temp;
+					//	break;
+					//case 11:
+					//	side = temp;
+					//	break;
+				default:
+					break;
+				}
+				temp = L"";
+				if (index == 9)
+					break;
+				if (i == fileName.GetLength())
+					break;
+			}
+		}
+
+		m_cashCnt++;
+
+		filePath = ff.GetFilePath();
+		SendADCData(filePath);
+
+		filePath = filePath.Left(filePath.Find(_T("adc")));
+		filePath += "cis_top.bmp";
+		SendCISData(filePath);
+
+		SendCashInfo(cashInfo);
+	}
+	SendStopRunCashSignal();
+	PostMessage(AfxGetApp()->GetMainWnd()->GetSafeHwnd(), WM_RUN_CASH_STOPPED, 0, 1);
+}
+
+bool DeviceProxy::SendADCData(CString filePath)
+{
+	CriticalSection::ScopedLocker locker(m_criSecSendCash);
+
+	RequestHeader header;
+	//std::shared_ptr<IBuffer> buffer{ new CCirQueue };
+	//std::dynamic_pointer_cast<CCirQueue>(buffer)->Initial(1024 * 1000 * 10, 1024 * 1000);
+	CCirQueue* buffer{ new CCirQueue };
+	buffer->Initial(1024 * 1000 * 4, 1024 * 1000);
+	unsigned char* dataBuf;
+
+	CFile file(filePath, CFile::modeRead | CFile::typeBinary);
+	int fileLen = file.GetLength();
+	int packLen = fileLen + sizeof(header);
+
+	header.count = m_cashCnt;
+	header.shortid = 0; //主控数据
+	header.signatures[0] = 'D';
+	header.signatures[1] = 'T';
+	header.length = fileLen;
+	buffer->push_back((unsigned char*)&header, sizeof(header));
+	dataBuf = new unsigned char[packLen];
+	file.Read(dataBuf, fileLen);
+	buffer->push_back(dataBuf, fileLen);
+	buffer->front(dataBuf, packLen);
+	buffer->pop_front(packLen);
+	file.Close();
+
+	if (m_sendCash.Send(dataBuf, packLen))
+	{
+		delete[] dataBuf;
+		return true;
+	}
+	else
+	{
+		delete[] dataBuf;
+		return false;
+	}
+}
+
+bool DeviceProxy::SendCISData(CString filePath)
+{
+	CriticalSection::ScopedLocker locker(m_criSecSendCash);
+
+	RequestHeader header;
+	//std::shared_ptr<IBuffer> buffer{ new CCirQueue };
+	//std::dynamic_pointer_cast<CCirQueue>(buffer)->Initial(1024 * 1000 * 10, 1024 * 1000);
+	CCirQueue* buffer{ new CCirQueue };
+	buffer->Initial(1024 * 1000 * 4, 1024 * 1000);
+	unsigned char* dataBuf;
+	unsigned char* img1;
+	unsigned char* img2;
+	int fileLen;
+	int packLen;
+
+	CFile file(filePath, CFile::modeRead | CFile::typeBinary);
+	fileLen = file.GetLength();
+	img1 = new unsigned char[fileLen - sizeof(BITMAPFILEHEADER)-sizeof(BITMAPINFOHEADER)];
+	file.Read(img1, sizeof(BITMAPFILEHEADER)+sizeof(BITMAPINFOHEADER));
+	file.Read(img1, fileLen - sizeof(BITMAPFILEHEADER)-sizeof(BITMAPINFOHEADER));
+	file.Close();
+	//cis_bottom
+	filePath = filePath.Left(filePath.Find(_T("top")));
+	filePath += "bottom.bmp";
+	file.Open(filePath, CFile::modeRead | CFile::typeBinary);
+	packLen = fileLen + file.GetLength();
+	fileLen = file.GetLength();
+	img2 = new unsigned char[fileLen - sizeof(BITMAPFILEHEADER)-sizeof(BITMAPINFOHEADER)];
+	file.Read(img2, sizeof(BITMAPFILEHEADER)+sizeof(BITMAPINFOHEADER));
+	file.Read(img2, fileLen - sizeof(BITMAPFILEHEADER)-sizeof(BITMAPINFOHEADER));
+	//cis合并
+	packLen = packLen - 2 * (sizeof(BITMAPFILEHEADER)+sizeof(BITMAPINFOHEADER)) + sizeof(header);
+	header.count = m_cashCnt;
+	header.shortid = 1; //图像数据
+	header.signatures[0] = 'D';
+	header.signatures[1] = 'T';
+	header.length = packLen - sizeof(header);
+	buffer->push_back((unsigned char*)&header, sizeof(header));
+	buffer->push_back(img1, packLen - fileLen + sizeof(BITMAPFILEHEADER)+sizeof(BITMAPINFOHEADER)-sizeof(header));
+	buffer->push_back(img2, fileLen - sizeof(BITMAPFILEHEADER)-sizeof(BITMAPINFOHEADER));
+	dataBuf = new unsigned char[packLen];
+	buffer->front(dataBuf, packLen);
+	file.Close();
+
+	if (m_sendCash.Send(dataBuf, packLen))
+	{
+		delete[] img1;
+		delete[] img2;
+		delete[] dataBuf;
+		return true;
+	}
+	else
+	{
+		delete[] img1;
+		delete[] img2;
+		delete[] dataBuf;
+		return false;
+	}
+}
+
+bool DeviceProxy::SendCashInfo(CashInfo cashInfo)
+{
+	CriticalSection::ScopedLocker locker(m_criSecSendCash);
+
+	RequestHeader header;
+	//std::shared_ptr<IBuffer> buffer{ new CCirQueue };
+	//std::dynamic_pointer_cast<CCirQueue>(buffer)->Initial(1024 * 1000 * 10, 1024 * 1000);
+	CCirQueue* buffer{ new CCirQueue };
+	buffer->Initial(1024 * 1000 * 4, 1024 * 1000);
+	unsigned char* dataBuf;
+	int packLen = sizeof(header)+sizeof(CashInfo);
+
+	header.count = m_cashCnt;
+	header.shortid = 2; //钞票信息
+	header.signatures[0] = 'D';
+	header.signatures[1] = 'T';
+	header.length = packLen - sizeof(header);
+
+	dataBuf = new unsigned char[packLen];
+	buffer->push_back((unsigned char*)&header, sizeof(header));
+	buffer->push_back((unsigned char*)&cashInfo, sizeof(cashInfo));
+	buffer->front(dataBuf, packLen);
+
+	if (m_sendCash.Send(dataBuf, packLen))
+	{
+		delete[] dataBuf;
+		return true;
+	}
+	else
+	{
+		delete[] dataBuf;
+		return false;
+	}
+}
+
+bool DeviceProxy::SendStartRunCashSignal()
+{
+	CriticalSection::ScopedLocker locker(m_criSecSendCash);
+
+	RequestHeader header;
+
+	header.count = 0;
+	header.shortid = 3; //开始走钞
+	header.signatures[0] = 'D';
+	header.signatures[1] = 'T';
+	header.length = 0;
+
+	return m_sendCash.Send(&header, sizeof(header));
+}
+
+bool DeviceProxy::SendStopRunCashSignal()
+{
+	CriticalSection::ScopedLocker locker(m_criSecSendCash);
+
+	RequestHeader header;
+
+	header.count = 0;
+	header.shortid = 4; //开始走钞
+	header.signatures[0] = 'D';
+	header.signatures[1] = 'T';
+	header.length = 0;
+
+	return m_sendCash.Send(&header, sizeof(header));
 }

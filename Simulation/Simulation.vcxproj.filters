@@ -63,6 +63,21 @@
     <ClInclude Include="SettingDlg.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="thread_inl.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="thread.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="IBuffer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="label.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CirQueue.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Simulation.cpp">
@@ -99,6 +114,18 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="SettingDlg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="thread.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="IBuffer.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="label.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CirQueue.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

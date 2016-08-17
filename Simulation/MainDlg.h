@@ -46,6 +46,7 @@ protected:
 	afx_msg LRESULT OnReceivedCommandUpgrade(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnReceivedCommand(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnReceivedCommandSetIRPara(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnRunCashStopped(WPARAM wParam, LPARAM lParam);
 
 	DECLARE_MESSAGE_MAP()
 };

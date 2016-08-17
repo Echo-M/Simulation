@@ -1,6 +1,7 @@
 #pragma once
 
 #include "TcpSocket.h"
+#include "thread.h"
 #include <thread>
 
 #define WM_STATE_CONNECT_CHANGED			WM_USER + 1
@@ -8,6 +9,7 @@
 #define WM_RECEIVED_COMMAND_UPGRADE			WM_USER + 3
 #define WM_RECEIVED_COMMAND_START_MOTOR		WM_USER + 4
 #define WM_RECEIVED_COMMAND_SET_IR_PARA		WM_USER + 5
+#define WM_RUN_CASH_STOPPED					WM_USER + 6
 
 
 #define SERIAL_NUMBER_LENGTH		24 //序列号长度
@@ -102,6 +104,22 @@ typedef struct RequestHeader_
 } RequestHeader;
 #pragma pack(pop)
 
+#pragma pack(push)
+#pragma pack(1)
+// 钞票信息
+struct CashInfo
+{
+	int count; //序号
+	int denomination; //面额
+	int version; //版本
+	int direction; //方向
+	int error; // 错误代码
+	char sn[32]; //冠字号
+	int snImageSize; //
+	unsigned int snImage[12][32];
+};
+#pragma pack(pop)
+
 enum {
 	COLOR_GREEN,
 	COLOR_IR,
@@ -124,6 +142,29 @@ enum {
 struct CISCorrectionTable 
 {
 	unsigned char data[CIS_COUNT][COLOR_COUNT][CIS_IMAGE_WIDTH][256];
+};
+#pragma pack(pop)
+
+enum WaveDataLevel
+{
+	WAVE_NO_DATA,
+	WAVE_HAS_DATA,
+};
+
+enum ImageDataLevel
+{
+	IMAGE_NO_DATA,
+	IMAGE_FULL_DATA,
+	IMAGE_DOWNSAMPLE_DATA,
+};
+
+#pragma pack(push)
+#pragma pack(1)
+struct DataLevel
+{
+	sockaddr_in    hostAddr;
+	WaveDataLevel  waveDataLevel;
+	ImageDataLevel imageDataLevel;
 };
 #pragma pack(pop)
 
@@ -185,9 +226,15 @@ public:
 private:
 	ConnectState m_connectState{ STATE_DEVICE_CLOSED }; // 已连接标志
 	std::thread m_thrConnect; // 连接线程句柄
+	std::thread m_thrSendCash; // 发送钞票数据句柄
 	bool m_connecting{ false }; //线程connect可否退出的标志
-	TcpSocket m_connect; // 用于连接
-	CurCommand m_curCommand;
+	bool m_sendingCash{ false }; //线程sendcash可否退出的标志
+	TcpSocket m_connect; // 用于连接的sock
+	TcpSocket m_sendCash; // 用于发送钞票数据的sock
+	CurCommand m_curCommand; // 当前正在进行的指令
+	CriticalSection m_criSecConnect;
+	CriticalSection m_criSecSendCash;
+	unsigned long long m_cashCnt{ 0 };
 public:
 	bool Start();
 	bool Stop();
@@ -199,9 +246,19 @@ public:
 	{
 		return m_curCommand;
 	}
+
+	bool StopSendingCash();
 private:
 	//指令接收与处理线程
 	bool WINAPI Process();
+
+	bool StartSendingCash();
+	bool SendCashDataProc();
+	bool SendStartRunCashSignal();
+	bool SendStopRunCashSignal();
+	bool SendADCData(CString filepath);
+	bool SendCISData(CString filepath);
+	bool SendCashInfo(CashInfo cashInfo);
 
 	bool ReceiveCommand(ReceiveResult* result);
 
@@ -224,5 +281,7 @@ private:
 	bool SendGetIRValues(unsigned long cnt, const void* recvData, int recvDataLength);
 	bool SendUpdateIRParameters(unsigned long cnt, const void* recvData, int recvDataLength);
 	bool SendStartMotor(unsigned long cnt, const void* recvData, int recvDataLength);
+
+	bool SendStartRunCashDetect(unsigned long cnt, const void* recvData, int recvDataLength);
 };
 
